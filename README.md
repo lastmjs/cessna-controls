@@ -6,6 +6,17 @@ what it does, and a short demonstration of how it moves.
 
 **Live site:** https://lastmjs.github.io/cesna-controls/
 
+![The cockpit with the parts list and control-surface airplane](screenshot.png)
+
+## Features
+
+- 64 selectable parts: flight controls, engine controls, fuel, electrical and lights, flight and engine instruments, radios, and cabin items
+- Every part named in English and Spanish, with a short explanation in both languages
+- "Show me" demonstrations: the yoke turns and pulls, flaps step down, the key turns through the magneto check, the fuel selector rotates, and the gauges react (RPM, ammeter, suction, low-voltage light)
+- A small airplane that shows what the yoke, rudder pedals, trim and flaps move
+- Quiz mode, progress tracking and settings saved in local storage
+- Full-screen mode, keyboard shortcuts, touch support
+
 Everything is built from code in the browser with [three.js](https://threejs.org/). There are
 no downloaded 3D models or photos. Your progress (parts you have marked as learned, quiz best
 score, settings) is saved in your browser's local storage and never leaves your device.
