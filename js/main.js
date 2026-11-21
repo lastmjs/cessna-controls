@@ -168,7 +168,7 @@ const mini = (() => {
   sc.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
   const dl = new THREE.DirectionalLight(0xffffff, 2); dl.position.set(-2, 4, 3); sc.add(dl);
   const cam = new THREE.PerspectiveCamera(32, 1.4, 0.1, 100);
-  cam.position.set(-6.5, 4.2, 7.5); cam.lookAt(0, -0.2, 0.4);
+  cam.position.set(-7.0, 4.3, 8.6); cam.lookAt(0.4, -0.15, 0.6);
   const white = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.5 });
   const hl = new THREE.MeshStandardMaterial({ color: 0xffb21f, roughness: 0.4, emissive: 0x442200 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x334, roughness: 0.4 });
@@ -207,6 +207,7 @@ const mini = (() => {
   m(new THREE.CylinderGeometry(0.2, 0.2, 0.12, 16), dark, 0, -0.95, -1.6).rotation.z = Math.PI / 2;
   // Propeller
   const prop = m(new THREE.BoxGeometry(0.12, 2.2, 0.04), dark, 0, 0, -1.65);
+  const prevClear = new THREE.Color();
   return {
     render(s, x, y, w, h) {
       surf.ailL.rotation.x = s.yokeRoll * 0.4;
@@ -220,7 +221,10 @@ const mini = (() => {
       cam.aspect = w / h; cam.updateProjectionMatrix();
       renderer.setScissorTest(true);
       renderer.setScissor(x, y, w, h); renderer.setViewport(x, y, w, h);
-      renderer.autoClear = false; renderer.clearDepth();
+      renderer.autoClear = false;
+      renderer.getClearColor(prevClear); const prevAlpha = renderer.getClearAlpha();
+      renderer.setClearColor(0x17212e, 1); renderer.clear(true, true, false);
+      renderer.setClearColor(prevClear, prevAlpha);
       renderer.render(sc, cam);
       renderer.setScissorTest(false); renderer.autoClear = true;
       renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);

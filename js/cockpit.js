@@ -40,12 +40,13 @@ export function buildCockpit() {
     grey: phys({ color: 0x6d7074, roughness: 0.45, clearcoat: 0.2 }),
     needle: std({ color: 0xf6f4ec, roughness: 0.4, emissive: 0x222222 }),
     orange: std({ color: 0xff7a12, roughness: 0.45, emissive: 0x3a1600 }),
-    glass: phys({ color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.12,
-      envMapIntensity: 1.6, clearcoat: 1, depthWrite: false }),
+    glass: phys({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.06,
+      envMapIntensity: 0.25, specularIntensity: 0.6, depthWrite: false }),
     windshield: phys({ color: 0xd8f0ff, roughness: 0.02, transparent: true, opacity: 0.07,
       envMapIntensity: 0.6, depthWrite: false, side: THREE.DoubleSide }),
     headliner: std({ color: 0xc9c2b2, roughness: 0.9, bumpMap: coarse, bumpScale: 1 }),
-    trim: std({ color: 0xb5ab98, roughness: 0.6, bumpMap: fine, bumpScale: 0.5 }),
+    pedestal: std({ color: 0x3b3a38, roughness: 0.7, bumpMap: fine, bumpScale: 0.6 }),
+    trim: std({ color: 0x8f877a, roughness: 0.65, bumpMap: fine, bumpScale: 0.5 }),
     carpet: std({ color: 0x3a3631, roughness: 1, bumpMap: fabricN, bumpScale: 3 }),
     fabric: std({ color: 0x5b5146, roughness: 0.95, bumpMap: fabricN, bumpScale: 3 }),
     leather: std({ color: 0x2a2420, roughness: 0.6, bumpMap: coarse, bumpScale: 1.5 }),
@@ -202,7 +203,13 @@ export function buildCockpit() {
 
   // ---------------------------------------------------------------- instruments
   const screwGeo = lathe([[0, 0.0016], [0.0022, 0.0014], [0.0028, 0.0006], [0.0028, 0]], 16);
+  // Neighboring instruments share mounting screws, so skip a screw if one is already close by.
+  const screwSpots = [];
   const screw = (parent, x, y) => {
+    parent.updateWorldMatrix(true, false);
+    const wp = parent.localToWorld(new THREE.Vector3(x, y, 0));
+    if (screwSpots.some(p => p.distanceTo(wp) < 0.012)) return null;
+    screwSpots.push(wp);
     const s = add(parent, screwGeo, M.screw, x, y, 0.0002);
     add(parent, new THREE.BoxGeometry(0.0045, 0.0007, 0.0008), M.recess, x, y, 0.0016, 0, 0, Math.random() * PI);
     return s;
@@ -795,7 +802,7 @@ export function buildCockpit() {
   // ---------------------------------------------------------------- center pedestal: trim, fuel selector, mic
   {
     const ped = group(root);
-    add(ped, new RoundedBoxGeometry(0.13, 0.5, 0.3, 3, 0.01), M.trim, 0, -0.3, -0.12);
+    add(ped, new RoundedBoxGeometry(0.11, 0.5, 0.3, 3, 0.01), M.pedestal, 0, -0.3, -0.12);
     // Trim wheel
     const tw = group(ped, 0, -0.21, 0.0);
     reg('trimwheel', tw);
@@ -967,13 +974,13 @@ export function buildCockpit() {
       p.setX(i, p.getX(i) * (1 - 0.18 * t)); p.setY(i, p.getY(i) * (1 - 0.15 * t) - 0.12 * t);
     }
     cowl.computeVertexNormals();
-    add(ext, cowl, M.paintWhite, 0, 0.08, -1.15);
+    add(ext, cowl, M.paintWhite, 0, 0.08, -1.32);
     // Stripe along the cowling side
-    for (const s of [-1, 1]) add(ext, new THREE.BoxGeometry(0.01, 0.05, 1.4), M.paintStripe, s * 0.47, 0.05, -1.1, 0.06, 0, 0);
+    for (const s of [-1, 1]) add(ext, new THREE.BoxGeometry(0.01, 0.05, 1.4), M.paintStripe, s * 0.47, 0.05, -1.3, 0.06, 0, 0);
     // Spinner and propeller
     const spin = new THREE.SphereGeometry(0.14, 32, 16, 0, PI * 2, 0, PI / 2); spin.rotateX(-PI / 2); spin.scale(1, 1, 1.6);
-    add(ext, spin, M.paintWhite, 0, -0.04, -1.98);
-    const prop = group(ext, 0, -0.04, -2.0);
+    add(ext, spin, M.paintWhite, 0, -0.04, -2.15);
+    const prop = group(ext, 0, -0.04, -2.17);
     prop.rotation.z = 0.35;
     for (const s of [-1, 1]) {
       const blade = new RoundedBoxGeometry(0.09, 0.9, 0.018, 2, 0.008);
