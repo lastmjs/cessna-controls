@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cessna 172/175 Controls</title>
+  <meta name="description" content="Explore the controls and instruments of a Cessna 172 / 175 style cockpit in 3D. Every part is named in English and Spanish.">
+  <meta name="theme-color" content="#0d1117">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23111'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23fff' stroke-width='3'/%3E%3Cpath d='M32 32 L32 12' stroke='%23ffb21f' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="viewport"></div>
+
+  <header id="topbar">
+    <div class="brand">
+      <h1 id="title">Cessna 172 / 175 Controls</h1>
+      <p id="subtitle">Click any part to learn its name</p>
+    </div>
+    <nav class="tools">
+      <button id="btn-parts" aria-pressed="false"><span class="ic">☰</span><span class="lbl">Parts</span></button>
+      <button id="btn-quiz"><span class="ic">?</span><span class="lbl">Quiz</span></button>
+      <div class="menu-wrap">
+        <button id="btn-views"><span class="ic">◎</span><span class="lbl">Views</span></button>
+        <div id="views-menu" class="menu" hidden>
+          <button data-view="pilot">Pilot seat</button>
+          <button data-view="panel">Whole panel</button>
+          <button data-view="floor">Floor &amp; pedals</button>
+          <button data-view="copilot">Copilot seat</button>
+          <hr>
+          <button data-toggle="mini" class="check">Control-surface airplane</button>
+          <button data-toggle="reset">Reset progress</button>
+        </div>
+      </div>
+      <button id="btn-lang"><span class="ic">🌐</span><span class="lbl">Español</span></button>
+      <button id="btn-help"><span class="ic">i</span><span class="lbl">Help</span></button>
+      <button id="btn-full"><span class="ic">⛶</span><span class="lbl">Full screen</span></button>
+    </nav>
+  </header>
+
+  <aside id="sidebar">
+    <div class="side-head">
+      <input id="search" type="search" placeholder="Search parts…" autocomplete="off" aria-label="Search">
+      <button class="icon" id="sidebar-close" aria-label="Close">✕</button>
+    </div>
+    <div class="progress"><div id="progress-bar"></div></div>
+    <div id="progress-text" class="progress-text"></div>
+    <ul id="list"></ul>
+  </aside>
+
+  <section id="info" hidden aria-live="polite"></section>
+  <div id="quizbar" hidden></div>
+  <div id="tooltip" hidden></div>
+  <div id="hint"></div>
+
+  <div id="mini" hidden>
+    <div class="mini-head"><span id="mini-title">Control surfaces</span><button class="icon" id="mini-close" aria-label="Close">✕</button></div>
+    <div class="mini-view"></div>
+  </div>
+
+  <div id="help" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <button class="icon close" data-close aria-label="Close">✕</button>
+      <h2 id="help-title">How to use · Cómo usar</h2>
+      <div class="cols">
+        <div lang="en">
+          <h3>Look around</h3>
+          <ul>
+            <li><b>Drag</b> to look around, <b>scroll</b> or <b>pinch</b> to zoom.</li>
+            <li><b>Right-drag</b> or <b>two fingers</b> to move sideways.</li>
+            <li><b>Click</b> any control or instrument to see its name in English and Spanish.</li>
+            <li><b>Show me</b> moves the control so you can see how it works. The small airplane shows what the flight controls move.</li>
+            <li><b>Quiz</b> asks you to find parts. Your progress is saved only in this browser.</li>
+          </ul>
+          <h3>Keyboard</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> previous / next part</li>
+            <li><kbd>Space</kbd> show me · <kbd>L</kbd> mark learned · <kbd>F</kbd> zoom to it</li>
+            <li><kbd>/</kbd> search · <kbd>Esc</kbd> close</li>
+          </ul>
+        </div>
+        <div lang="es">
+          <h3>Mirar alrededor</h3>
+          <ul>
+            <li><b>Arrastre</b> para mirar, use la <b>rueda</b> o <b>pellizque</b> para acercar.</li>
+            <li><b>Clic derecho</b> o <b>dos dedos</b> para desplazarse.</li>
+            <li><b>Toque</b> cualquier control o instrumento para ver su nombre en inglés y español.</li>
+            <li><b>Muéstrame</b> mueve el control para ver cómo funciona. El avioncito muestra qué mueven los controles de vuelo.</li>
+            <li><b>Prueba</b> le pide encontrar piezas. Su progreso se guarda solo en este navegador.</li>
+          </ul>
+          <h3>Teclado</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> pieza anterior / siguiente</li>
+            <li><kbd>Espacio</kbd> muéstrame · <kbd>L</kbd> marcar aprendida · <kbd>F</kbd> acercar</li>
+            <li><kbd>/</kbd> buscar · <kbd>Esc</kbd> cerrar</li>
+          </ul>
+        </div>
+      </div>
+      <p class="legal">
+        Independent educational project. Not affiliated with, endorsed by, or sponsored by Textron Aviation Inc.
+        “Cessna” is a trademark of Textron Aviation Inc., used only to name the aircraft type. All 3D shapes, gauges and
+        text were made from scratch for this project. This is not a flight training device and does not replace the
+        airplane's Pilot's Operating Handbook or a flight instructor.<br>
+        Proyecto educativo independiente, sin relación con Textron Aviation Inc. No reemplaza el manual del avión ni a un instructor.
+      </p>
+      <p class="legal"><a href="https://github.com/lastmjs/cesna-controls" target="_blank" rel="noopener">Source code on GitHub</a> · MIT License</p>
+    </div>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><p>Building the cockpit… · Construyendo la cabina…</p></div>
+  <noscript><p class="noscript">This 3D viewer needs JavaScript and WebGL.</p></noscript>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
