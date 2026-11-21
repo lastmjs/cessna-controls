@@ -115,7 +115,11 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
     info.innerHTML = `
       <div class="info-head">
         <span class="chip">${esc(cat.en)} · ${esc(cat.es)}</span>
-        <button class="icon" id="info-close" aria-label="${t('close')}" title="${t('close')} (Esc)">✕</button>
+        <span class="nav">
+          <button class="icon" id="act-prev" aria-label="${t('prev')}" title="${t('prev')} (←)">‹</button>
+          <button class="icon" id="act-next" aria-label="${t('next')}" title="${t('next')} (→)">›</button>
+          <button class="icon" id="info-close" aria-label="${t('close')}" title="${t('close')} (Esc)">✕</button>
+        </span>
       </div>
       <h2 class="name-en" lang="en">${esc(c.en)}</h2>
       <h2 class="name-es" lang="es">${esc(c.es)}</h2>
@@ -130,9 +134,6 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
         ${kind ? `<button class="primary" id="act-run">${kind === 'toggle' ? '⏻ ' + t('toggle') : '▶ ' + t('demonstrate')}</button>${stateTxt}` : ''}
         <button id="act-learn" class="${st.learned.has(c.id) ? 'learned' : ''}">${st.learned.has(c.id) ? t('unmark') : t('mark')}</button>
         <button id="act-zoom">⌖ ${t('zoom')}</button>
-        <span class="spacer"></span>
-        <button class="icon" id="act-prev" aria-label="${t('prev')}" title="${t('prev')} (←)">‹</button>
-        <button class="icon" id="act-next" aria-label="${t('next')}" title="${t('next')} (→)">›</button>
       </div>`;
     $('#info-close').onclick = () => select(null);
     info.querySelectorAll('.seg button').forEach(b => b.onclick = () => { st.descLang = b.dataset.l; save(); renderInfo(); });
@@ -209,7 +210,7 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
       return;
     }
     const c = quiz.pool[quiz.i];
-    qbar.innerHTML = `<div class="q-main"><span class="q-label">${t('find')} · Encuentre</span>
+    qbar.innerHTML = `<div class="q-main"><span class="q-label">Find · Encuentre</span>
         <span class="q-en">${esc(c.en)}</span><span class="q-es">${esc(c.es)}</span></div>
       <div class="q-msg ${cls}">${msg}</div>
       <div class="q-actions"><span class="q-score">${quiz.score} / ${quiz.pool.length} · ${t('best')} ${st.quizBest}</span>

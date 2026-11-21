@@ -168,7 +168,7 @@ const mini = (() => {
   sc.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
   const dl = new THREE.DirectionalLight(0xffffff, 2); dl.position.set(-2, 4, 3); sc.add(dl);
   const cam = new THREE.PerspectiveCamera(32, 1.4, 0.1, 100);
-  cam.position.set(-7.0, 4.3, 8.6); cam.lookAt(0.4, -0.15, 0.6);
+  cam.position.set(-7.6, 4.6, 9.4); cam.lookAt(0.9, -0.3, 0.3);
   const white = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.5 });
   const hl = new THREE.MeshStandardMaterial({ color: 0xffb21f, roughness: 0.4, emissive: 0x442200 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x334, roughness: 0.4 });
@@ -293,6 +293,8 @@ function resize() {
   renderer.setSize(w, h);
   composer.setSize(w, h);
   camera.aspect = w / h;
+  // Portrait phones: widen the vertical field of view so the panel still fits across.
+  camera.fov = w / h < 1 ? THREE.MathUtils.clamp(52 / (w / h) * 0.75, 52, 80) : 52;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);

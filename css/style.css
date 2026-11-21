@@ -124,7 +124,9 @@ body.sidebar-open #info { left: calc(var(--side) + 28px); }
 .q-msg.good { color: var(--good); } .q-msg.bad { color: var(--bad); }
 .q-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .q-score { margin-right: auto; color: var(--muted); font-size: 13px; }
-body.quizzing #info { display: none; }
+body.quizzing #info, body.quizzing #sidebar { display: none; }
+.info-head .nav { display: inline-flex; gap: 2px; }
+.info-head .nav .icon { font-size: 20px; padding: 2px 9px; }
 
 /* ---------- control-surface airplane */
 #mini { position: fixed; right: 16px; bottom: 16px; width: 300px; height: 220px; z-index: 12; border-radius: var(--radius);
@@ -178,7 +180,9 @@ kbd { background: rgba(255,255,255,.1); border: 1px solid var(--line); border-ra
   #info { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 52vh; padding: 12px 13px; }
   body.sidebar-open #info { left: 8px; }
   .name-en { font-size: 20px; } .name-es { font-size: 17px; }
-  #mini { top: 62px; right: 8px; bottom: auto; width: 170px; height: 128px; }
+  #mini { top: 62px; right: 8px; bottom: auto; width: 160px; height: 120px; }
+  #mini-title { display: none; }
+  .mini-head { justify-content: flex-end; padding: 0 2px; background: transparent; }
   #quizbar { top: 62px; }
   .cols { grid-template-columns: 1fr; }
   #hint { white-space: normal; width: calc(100vw - 32px); text-align: center; bottom: 10px; }
