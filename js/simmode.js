@@ -578,29 +578,28 @@ export function createSimMode(o) {
     person.root.rotation.y = -walker.heading * D2R;
     person.animate(dt, walker.speed, walker.reach);
 
-    // Nearby actions
-    nearAction = null;
-    const door = localToMSL(...DOOR_L);
-    const dist = (p) => Math.hypot(p.x - walker.x, p.z - walker.z);
-    if (dist(door) < 2.2) nearAction = { en: 'Get in the airplane', es: 'Subir al avión', fn: tryBoard };
-    for (const side of [-1, 1]) {
-      const w = localToMSL(side * 1.27, -1.1, 1.05);
-      if (dist(w) < 1.8 && !nearAction) nearAction = chocks
-        ? { en: 'Remove the chocks', es: 'Quitar los calzos', fn: () => { chocks = false; toast('Chocks removed', 'Calzos quitados'); } }
-        : (F.gs < 0.1 ? { en: 'Put the chocks in', es: 'Poner los calzos', fn: () => { chocks = true; toast('Chocks in place', 'Calzos puestos'); } } : null);
-    }
-    walker.reach = Math.max(0, walker.reach - dt * 2);
-    fueling = false;
+    // Nearby actions: each has its own standing spot next to the airplane; the closest one wins
+    const cands = [];
+    const spot = (x, z, r, act) => { const p = localToMSL(x, -1.1, z); const d = Math.hypot(p.x - walker.x, p.z - walker.z); if (d < r && act) cands.push([d, act]); };
+    spot(-1.05, 0.45, 1.3, { en: 'Get in the airplane', es: 'Subir al avión', fn: tryBoard });
+    for (const side of [-1, 1]) spot(side * 1.27, 1.8, 1.1, chocks
+      ? { en: 'Remove the chocks', es: 'Quitar los calzos', fn: () => { chocks = false; toast('Chocks removed', 'Calzos quitados'); } }
+      : (F.gs < 0.1 ? { en: 'Put the chocks in', es: 'Poner los calzos', fn: () => { chocks = true; toast('Chocks in place', 'Calzos puestos'); } } : null));
     for (const side of ['L', 'R']) {
       const cap = exterior.H['fuelCap' + side];
+      const sx = side === 'L' ? -1 : 1;
       const p = localToMSL(cap.x, cap.y, cap.z);
-      if (Math.hypot(p.x - walker.x, p.z - walker.z) < 1.9) {
-        const pumpDist = Math.hypot(p.x - PUMP.x, p.z - PUMP.z);
-        const key = side === 'L' ? 'fuelL' : 'fuelR';
-        if (pumpDist > 22) nearAction = { en: `${side === 'L' ? 'Left' : 'Right'} tank: ${F[key].toFixed(1)} gal. Taxi to the fuel pump to refuel.`, es: `Tanque ${side === 'L' ? 'izquierdo' : 'derecho'}: ${F[key].toFixed(1)} gal. Lleve el avión a la bomba.`, fn: () => {} };
-        else nearAction = { hold: true, en: `Hold to fuel the ${side === 'L' ? 'left' : 'right'} tank · ${F[key].toFixed(1)} / 26.5 gal`, es: `Mantenga para cargar el tanque ${side === 'L' ? 'izquierdo' : 'derecho'}`, key, fn: () => {} };
-      }
+      const pumpDist = Math.hypot(p.x - PUMP.x, p.z - PUMP.z);
+      const key = side === 'L' ? 'fuelL' : 'fuelR';
+      const name = side === 'L' ? ['left', 'izquierdo'] : ['right', 'derecho'];
+      spot(sx * 2.4, cap.z, 1.1, pumpDist > 22
+        ? { en: `${name[0][0].toUpperCase() + name[0].slice(1)} tank: ${F[key].toFixed(1)} gal. Taxi to the fuel pump to refuel.`, es: `Tanque ${name[1]}: ${F[key].toFixed(1)} gal. Lleve el avión a la bomba.`, fn: () => {} }
+        : { hold: true, en: `Hold to fuel the ${name[0]} tank · ${F[key].toFixed(1)} / 26.5 gal`, es: `Mantenga para cargar el tanque ${name[1]}`, key, fn: () => {} });
     }
+    cands.sort((a, b) => a[0] - b[0]);
+    nearAction = cands.length ? cands[0][1] : null;
+    walker.reach = Math.max(0, walker.reach - dt * 2);
+    fueling = false;
     if (nearAction && nearAction.hold && (holds.fuel || keys.has('e'))) {
       const add = Math.min(26.5 - F[nearAction.key], PUMP_GPM / 60 * dt);
       if (add > 0) { F[nearAction.key] += add; fueledGal += add; fueling = true; walker.reach = 1; }
@@ -813,6 +812,7 @@ export function createSimMode(o) {
     get active() { return active; },
     get view() { return view; },
     fdm,
+    _debug: { walker, get near() { return nearAction; }, get chocks() { return chocks; }, get onFoot() { return onFoot; }, localToMSL },
     enter() {
       active = true;
       document.body.classList.add('sim');

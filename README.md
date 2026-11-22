@@ -1,7 +1,7 @@
 # cessna-controls
 
 An interactive, full-screen 3D cockpit for learning the controls of a Cessna 172 / 175 style
-light airplane. Click any control or instrument to see its name in **English and Spanish**,
+light airplane, and a flight simulator to fly it. Click any control or instrument to see its name in **English and Spanish**,
 what it does, and a short demonstration of how it moves.
 
 **Live site:** https://lastmjs.github.io/cessna-controls/
@@ -20,6 +20,33 @@ what it does, and a short demonstration of how it moves.
 Everything is built from code in the browser with [three.js](https://threejs.org/). There are
 no downloaded 3D models or photos. Your progress (parts you have marked as learned, quiz best
 score, settings) is saved in your browser's local storage and never leaves your device.
+
+## Simulator mode
+
+Press **Fly · Volar** to switch from study mode to the flight simulator. Everything from study
+mode still works; the simulator adds:
+
+- **Flight model**: 6-degree-of-freedom physics at 240 Hz with lift, drag and stall from Cessna 172
+  aerodynamic coefficients, ground effect, propeller torque and P-factor, slipstream over the tail,
+  wind and gusts. It is checked against book figures in `test/fdm-test.mjs` (idle and static RPM,
+  takeoff roll, top speed, climb, glide, stall speeds, fuel flow): run `node test/fdm-test.mjs`.
+- **Engine and systems**: carbureted 160 hp engine with mixture, carb heat, magnetos, priming
+  (and flooding), starter and battery, alternator, vacuum gyros that spin up, fuel tanks that burn
+  down with real fuel flow and run dry, oil temperature and pressure, electric flaps.
+- **Instruments** driven by the physics: airspeed, altimeter with Kollsman setting, lagging VSI,
+  attitude, turn coordinator and slip ball, heading indicator with drift, swinging magnetic compass,
+  VOR, tachometer, engine gauges, stall horn.
+- **On foot**: start in the hangar, walk around, remove the chocks, taxi to the pump and fuel up
+  (10 gallons per minute, priced per gallon), get in and out.
+- **World**: one airport (runway 18/36, 5000 ft, elevation 1520 ft) with a hangar, FBO and fuel pump;
+  hills, a mountain range, a lake, a river, a town, farms, trees and clouds.
+- **Controls**: keyboard, gamepad, or touch (virtual yoke, throttle, rudder, brakes, flaps, trim),
+  with optional auto-rudder and tiller steering for phones.
+- Your parked airplane (position, fuel, chocks) and settings are saved in local storage.
+
+Keys: ↑↓ pitch · ←→ roll · Q/E rudder · +/− throttle · B brakes · Shift+B parking brake ·
+F/V flaps · [ ] trim · M/N mixture · H carb heat · K magnetos · Shift+K start · C camera ·
+Y systems · P pause · Enter get in/out · walking: WASD, Shift to run, E to act.
 
 ## Run locally
 

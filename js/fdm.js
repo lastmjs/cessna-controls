@@ -119,7 +119,7 @@ function liftCoef(a, base, aStall) {
 const propCt = (J) => Math.max(-0.08, 0.098 - 0.0145 * J - 0.0795 * J * J);
 const propCp = (J) => 0.0585 + 0.004 * J - 0.0395 * J * J;
 const ENGINE = {
-  displacement: 0.00524, Ve: 0.80, kInd: 2.13, map0: 5.4, kFric: 0.0031,
+  displacement: 0.00524, Ve: 0.80, kInd: 2.13, map0: 5.15, kFric: 0.0031,
   inertia: 1.75, ratedRpm: 2700,
 };
 // Power multiplier from fuel/air equivalence ratio phi (1 = stoichiometric)
@@ -214,7 +214,7 @@ export function createFDM() {
     if (combust) {
       pInd = ENGINE.kInd * st.rpm * Math.max(0, map - ENGINE.map0) * mixturePower(phi) * (mags === 1 ? 0.965 : 1) * (c.carbheat > 0.5 ? 0.92 : 1);
     }
-    const pFric = ENGINE.kFric * st.rpm * st.rpm + (st.rpm > 1 ? 60 : 0);
+    const pFric = ENGINE.kFric * st.rpm * st.rpm + 8 * omega * (st.rpm > 1 ? 1 : 0); // 8 N·m of breakaway friction
     // Starter
     st.starter = keyPos === 4 && c.bat > 0.5 && st.battery > 0.15;
     const qStarter = st.starter ? Math.max(0, 95 - st.rpm * 0.35) * clamp((st.battery - 0.15) / 0.3, 0, 1) : 0;
@@ -229,7 +229,7 @@ export function createFDM() {
     const windmill = Math.max(0, vb[0] - n * PLANE.propD * 0.95) * 0;
     const qNet = (pInd - pFric - pProp) / omega + qStarter + windmill;
     st.rpm = Math.max(0, st.rpm + (qNet / ENGINE.inertia) * dt * 30 / Math.PI);
-    if (!combust && st.rpm < 30 && vb[0] < 15) st.rpm *= 0.9;
+    if (!combust && !st.starter && st.rpm < 30 && vb[0] < 15) st.rpm *= 0.9;
     // Windmill: a stopped prop in a fast glide still turns a little
     if (!combust && vb[0] > 25) st.rpm = Math.max(st.rpm, (vb[0] - 25) * 12);
     st.thrust = thrust;
@@ -242,7 +242,7 @@ export function createFDM() {
         if (st.crank > need) { st.running = true; st.flooded = false; st.events.push('engine-start'); }
       } else if (!st.starter) st.crank = Math.max(0, st.crank - dt);
     } else {
-      if (mags === 0 || !fuelToEngine || phi < 0.62 || phi > 2.1 || st.rpm < 280) {
+      if (mags === 0 || !fuelToEngine || phi < 0.62 || phi > 2.1 || st.rpm < 110) {
         st.running = false; st.events.push('engine-stop');
       }
     }
