@@ -7,6 +7,7 @@ import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCockpit } from './cockpit.js';
+import { buildExterior } from './airplane.js';
 import { createSim } from './sim.js';
 import { setAnisotropy, canvas as mkCanvas } from './gauges.js';
 import { createUI } from './ui.js';
@@ -41,7 +42,7 @@ scene.environmentIntensity = 0.55;
   scene.add(new THREE.Mesh(skyGeo, skyMat));
   scene.fog = new THREE.Fog(0xc4d8ea, 60, 1800);
 
-  const groundY = -1.25;
+  const groundY = -1.15;
   const gc = mkCanvas(256), g = gc.getContext('2d');
   g.fillStyle = '#5d7a3a'; g.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${40 + Math.random() * 60},${70 + Math.random() * 60},${20 + Math.random() * 30},0.5)`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
@@ -99,6 +100,8 @@ fill.position.set(0, 0.6, 1.0); scene.add(fill);
 // ------------------------------------------------------------------ cockpit
 const cockpit = buildCockpit();
 scene.add(cockpit.root);
+const exterior = buildExterior();
+scene.add(exterior.root);
 const sim = createSim(cockpit.H);
 
 // ------------------------------------------------------------------ camera
@@ -115,7 +118,7 @@ controls.target.set(...VIEWS.pilot.target);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 0.06;
-controls.maxDistance = 3.0;
+controls.maxDistance = 14.0;
 controls.zoomSpeed = 0.9;
 controls.panSpeed = 0.8;
 controls.rotateSpeed = 0.6;
@@ -353,6 +356,7 @@ function frame() {
   applyViewShift(dt);
   controls.update();
   sim.update(dt, now);
+  { const s = sim.state; exterior.H.update(null, s, dt, { nav: s.sw_nav, beacon: s.sw_beacon && Math.sin(now * 7) > 0.6, strobe: s.sw_strobe && (now % 1.2) < 0.06, landing: s.sw_land }); }
   doHover();
   ui.tick();
   composer.render(dt);

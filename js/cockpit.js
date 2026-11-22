@@ -963,42 +963,5 @@ export function buildCockpit() {
     add(g, new RoundedBoxGeometry(1.0, 0.6, 0.12, 4, 0.04), M.fabric, 0, 0.62, 0.25, -0.15, 0, 0);
   }
 
-  // ---------------------------------------------------------------- outside: cowling, propeller, wings, ground
-  {
-    const ext = group(root);
-    // Engine cowling: a softened box tapering toward the nose
-    const cowl = new RoundedBoxGeometry(1.0, 0.62, 1.6, 6, 0.22);
-    const p = cowl.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const z = p.getZ(i); const t = (0.8 - z) / 1.6; // 0 aft, 1 nose
-      p.setX(i, p.getX(i) * (1 - 0.18 * t)); p.setY(i, p.getY(i) * (1 - 0.15 * t) - 0.12 * t);
-    }
-    cowl.computeVertexNormals();
-    add(ext, cowl, M.paintWhite, 0, 0.08, -1.32);
-    // Stripe along the cowling side
-    for (const s of [-1, 1]) add(ext, new THREE.BoxGeometry(0.01, 0.05, 1.4), M.paintStripe, s * 0.47, 0.05, -1.3, 0.06, 0, 0);
-    // Spinner and propeller
-    const spin = new THREE.SphereGeometry(0.14, 32, 16, 0, PI * 2, 0, PI / 2); spin.rotateX(-PI / 2); spin.scale(1, 1, 1.6);
-    add(ext, spin, M.paintWhite, 0, -0.04, -2.15);
-    const prop = group(ext, 0, -0.04, -2.17);
-    prop.rotation.z = 0.35;
-    for (const s of [-1, 1]) {
-      const blade = new RoundedBoxGeometry(0.09, 0.9, 0.018, 2, 0.008);
-      add(prop, blade, M.rubber, 0, s * 0.5, 0, 0, s * 0.25, 0);
-      add(prop, new THREE.BoxGeometry(0.09, 0.08, 0.02), M.paintWhite, 0, s * 0.92, 0);
-    }
-    // High wing above the cabin, with struts
-    const wing = new RoundedBoxGeometry(11, 0.16, 1.55, 4, 0.07);
-    add(ext, wing, M.paintWhite, 0, 1.08, 0.75);
-    for (const s of [-1, 1]) {
-      const a = new THREE.Vector3(s * 0.62, -0.5, 0.75), b = new THREE.Vector3(s * 2.6, 1.0, 0.75);
-      const strut = new THREE.CylinderGeometry(0.025, 0.025, a.distanceTo(b), 12);
-      const m = add(ext, strut, M.paintWhite, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-      // Fuselage sides outside
-      add(ext, new THREE.BoxGeometry(0.02, 0.7, 2.6), M.paintWhite, s * 0.6, -0.25, 0.7);
-    }
-  }
-
   return { root, parts, H, M };
 }
