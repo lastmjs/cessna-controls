@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCockpit } from './cockpit.js';
 import { buildExterior } from './airplane.js';
+import { createWorld, FIELD } from './world.js';
 import { createSim } from './sim.js';
 import { setAnisotropy, canvas as mkCanvas } from './gauges.js';
 import { createUI } from './ui.js';
@@ -28,58 +29,16 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.55;
 
-// ------------------------------------------------------------------ sky and ground
-{
-  const skyGeo = new THREE.SphereGeometry(3000, 48, 24);
-  const skyMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color(0x3d78c9) }, mid: { value: new THREE.Color(0xa9c9ea) }, bottom: { value: new THREE.Color(0xdfe9f1) } },
-    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bottom; varying vec3 vP;
-      void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(mid, top, pow(clamp(h,0.0,1.0), 0.6)) : mix(mid, bottom, clamp(-h*4.0,0.0,1.0));
-      gl_FragColor = vec4(c, 1.0); }`,
-  });
-  scene.add(new THREE.Mesh(skyGeo, skyMat));
-  scene.fog = new THREE.Fog(0xc4d8ea, 60, 1800);
-
-  const groundY = -1.15;
-  const gc = mkCanvas(256), g = gc.getContext('2d');
-  g.fillStyle = '#5d7a3a'; g.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${40 + Math.random() * 60},${70 + Math.random() * 60},${20 + Math.random() * 30},0.5)`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
-  const gt = new THREE.CanvasTexture(gc); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(400, 400); gt.colorSpace = THREE.SRGBColorSpace;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2; ground.position.y = groundY; ground.receiveShadow = true;
-  scene.add(ground);
-  // Ramp and taxiway with a yellow centerline
-  const tc = mkCanvas(128, 512), t = tc.getContext('2d');
-  t.fillStyle = '#4a4a4c'; t.fillRect(0, 0, 128, 512);
-  for (let i = 0; i < 3000; i++) { t.fillStyle = `rgba(${60 + Math.random() * 60},${60 + Math.random() * 60},${60 + Math.random() * 60},0.35)`; t.fillRect(Math.random() * 128, Math.random() * 512, 1.5, 1.5); }
-  t.fillStyle = '#e6b82a'; t.fillRect(60, 0, 8, 512);
-  const tt = new THREE.CanvasTexture(tc); tt.wrapS = tt.wrapT = THREE.RepeatWrapping; tt.repeat.set(1, 60); tt.colorSpace = THREE.SRGBColorSpace;
-  tt.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const twy = new THREE.Mesh(new THREE.PlaneGeometry(16, 900), new THREE.MeshStandardMaterial({ map: tt, roughness: 0.9 }));
-  twy.rotation.x = -Math.PI / 2; twy.position.set(0, groundY + 0.01, -440); twy.receiveShadow = true;
-  scene.add(twy);
-  const ramp = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshStandardMaterial({ color: 0x55565a, roughness: 0.95 }));
-  ramp.rotation.x = -Math.PI / 2; ramp.position.set(0, groundY + 0.005, 8); ramp.receiveShadow = true;
-  scene.add(ramp);
-  // A few hangars and a tree line on the horizon
-  const hangarMat = new THREE.MeshStandardMaterial({ color: 0xb9bcc0, roughness: 0.6, metalness: 0.3 });
-  for (const [x, z, w] of [[-45, -70, 24], [-75, -60, 20], [40, -110, 30]]) {
-    const h = new THREE.Group();
-    h.add(new THREE.Mesh(new THREE.BoxGeometry(w, 7, 18), hangarMat)); h.children[0].position.y = 3.5;
-    const roof = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 18, 24, 1, false, -Math.PI / 2, Math.PI), hangarMat);
-    roof.rotation.x = Math.PI / 2; roof.scale.set(1, 1, 0.25); roof.position.y = 7; h.add(roof);
-    h.position.set(x, groundY, z); scene.add(h);
-  }
-  const treeMat = new THREE.MeshStandardMaterial({ color: 0x2f4a26, roughness: 1 });
-  for (let i = 0; i < 160; i++) {
-    const a = (i / 160) * Math.PI * 2, r = 500 + Math.random() * 250;
-    const tr = new THREE.Mesh(new THREE.ConeGeometry(6 + Math.random() * 8, 14 + Math.random() * 20, 7), treeMat);
-    tr.position.set(Math.cos(a) * r, groundY + 10, Math.sin(a) * r);
-    scene.add(tr);
-  }
-}
+// ------------------------------------------------------------------ world
+// World coordinates are meters above sea level; the world group is shifted down so the
+// study-mode parking spot (apron, world origin) sits under the cockpit's local frame.
+const tWorld = performance.now();
+const world = createWorld();
+console.info(`World built in ${Math.round(performance.now() - tWorld)} ms`);
+export const WORLD_Y = -(FIELD + 0.05 + 1.15);
+world.group.position.y = WORLD_Y;
+scene.add(world.group);
+scene.fog = new THREE.Fog(0xc0d3e4, 2500, 26000);
 
 // ------------------------------------------------------------------ lights
 const hemi = new THREE.HemisphereLight(0xcfe2ff, 0x6b5a45, 0.9);
@@ -105,7 +64,7 @@ scene.add(exterior.root);
 const sim = createSim(cockpit.H);
 
 // ------------------------------------------------------------------ camera
-const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.01, 4000);
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.04, 40000);
 export const VIEWS = {
   pilot: { pos: [-0.28, 0.56, 0.86], target: [-0.17, 0.17, 0.0] },
   panel: { pos: [0.0, 0.3, 0.92], target: [0.0, 0.16, 0.0] },
@@ -355,6 +314,7 @@ function frame() {
   }
   applyViewShift(dt);
   controls.update();
+  world.update(camera.position.clone().sub(world.group.position), 320, 6);
   sim.update(dt, now);
   { const s = sim.state; exterior.H.update(null, s, dt, { nav: s.sw_nav, beacon: s.sw_beacon && Math.sin(now * 7) > 0.6, strobe: s.sw_strobe && (now % 1.2) < 0.06, landing: s.sw_land }); }
   doHover();
