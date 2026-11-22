@@ -1,10 +1,10 @@
-# cesna-controls
+# cessna-controls
 
 An interactive, full-screen 3D cockpit for learning the controls of a Cessna 172 / 175 style
 light airplane. Click any control or instrument to see its name in **English and Spanish**,
 what it does, and a short demonstration of how it moves.
 
-**Live site:** https://lastmjs.github.io/cesna-controls/
+**Live site:** https://lastmjs.github.io/cessna-controls/
 
 ![The cockpit with the parts list and control-surface airplane](screenshot.png)
 
