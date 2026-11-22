@@ -87,7 +87,7 @@ export function createSimMode(o) {
   const keys = new Set();
   const kb = { pitch: 0, roll: 0, rudder: 0 };
   let brakeHeld = false;
-  const settings = Object.assign({ wind: 'light', hud: true, assist: isTouch, sound: true, touchUI: isTouch }, loadJSON('cessna-controls:sim:settings') || {});
+  const settings = Object.assign({ wind: 'light', hud: true, assist: isTouch, sound: true, touchUI: isTouch, quality: isTouch ? 'low' : 'high' }, loadJSON('cessna-controls:sim:settings') || {});
   const windState = { dir: 320, kt: 6, gust: [0, 0, 0], gustT: 0 };
   let crashShown = false;
   const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3();
@@ -224,6 +224,7 @@ export function createSimMode(o) {
           <div class="seg2"><button data-baro="-1">−</button><button data-baro="0">29.92</button><button data-baro="1">+</button></div>
           <label>Wind · Viento</label>${seg('wind', [['calm', 'Calm'], ['light', 'Light'], ['gusty', 'Gusty']], settings.wind)}
           <label>Help · Ayuda</label>
+          <label>Quality · Calidad</label>${seg('quality', [['low', 'Phone · Teléfono'], ['high', 'High · Alta']], settings.quality)}
           ${sw('assist', 'Auto-rudder assist', settings.assist)}${sw('hud', 'HUD', settings.hud)}${sw('sound', 'Sound · Sonido', settings.sound)}${sw('touchUI', 'Touch controls', settings.touchUI)}
         </section>
         <section class="wide"><h4>Checklist · Lista de chequeo</h4>
@@ -248,6 +249,7 @@ export function createSimMode(o) {
       if (k === 'fuelSel') S.fuelSel = Number(v);
       if (k === 'flaps') S.flapCmd = Number(v);
       if (k === 'wind') { settings.wind = v; saveSettings(); setWind(); }
+      if (k === 'quality') { settings.quality = v; saveSettings(); applySettings(); }
     }
     if (t.dataset.primer !== undefined) prime();
     if (t.dataset.baro !== undefined) { const d = Number(t.dataset.baro); S.baro = d === 0 ? 29.92 : clamp(Math.round((S.baro + d * 0.01) * 100) / 100, 28.5, 31); }
@@ -686,9 +688,17 @@ export function createSimMode(o) {
       <div class="chips">${chips.join('')}</div>`;
   }
 
+  // Quality: phones skip shadows cast by small cockpit parts and use a smaller shadow map.
+  const cockpitCasters = [];
+  cockpit.root.traverse(o => { if (o.isMesh && o.castShadow) cockpitCasters.push(o); });
   function applySettings() {
     ui.classList.toggle('touch', settings.touchUI);
     audio.setMuted(!settings.sound);
+    const high = settings.quality === 'high';
+    for (const m of cockpitCasters) m.castShadow = high;
+    const size = high ? 2048 : 1024;
+    if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    o.setMaxPixelRatio(high ? 2 : 1.5);
   }
 
   // ------------------------------------------------------------ frame

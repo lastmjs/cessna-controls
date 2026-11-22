@@ -42,6 +42,7 @@ export function buildCockpit() {
     orange: std({ color: 0xff7a12, roughness: 0.45, emissive: 0x3a1600 }),
     glass: phys({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.06,
       envMapIntensity: 0.25, specularIntensity: 0.6, depthWrite: false }),
+    // (mergeable: the instrument glass is a flat cover; merging it is safe)
     windshield: phys({ color: 0xd8f0ff, roughness: 0.02, transparent: true, opacity: 0.07,
       envMapIntensity: 0.6, depthWrite: false, side: THREE.DoubleSide }),
     headliner: std({ color: 0xc9c2b2, roughness: 0.9, bumpMap: coarse, bumpScale: 1 }),
@@ -58,6 +59,7 @@ export function buildCockpit() {
     redLens: std({ color: 0x330000, emissive: 0x000000, roughness: 0.2 }),
   };
   H.M = M;
+  M.glass.userData.mergeable = true;
 
   // ---------------------------------------------------------------- helpers
   const add = (parent, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
@@ -93,10 +95,34 @@ export function buildCockpit() {
   };
   const noRay = (m) => { m.raycast = () => {}; return m; };
   // Text plane on (or parallel to) a surface.
+  // All placards share texture atlases (pages of 2048 px), so the simulator can merge them
+  // into very few draw calls.
+  const ATLAS = 2048, AS = 0.5;
+  const pages = [];
+  const newPage = () => {
+    const c = G.canvas(ATLAS), t = G.tex(c);
+    const mk = (transparent) => { const m = new THREE.MeshStandardMaterial({ map: t, transparent, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: !transparent }); m.userData.mergeable = true; return m; };
+    const pg = { c, ctx: c.getContext('2d'), t, x: 0, y: 0, rowH: 0, clear: mk(true), solid: mk(false) };
+    pages.push(pg); return pg;
+  };
+  const atlasPut = (src) => {
+    const w = Math.ceil(src.width * AS) + 2, h = Math.ceil(src.height * AS) + 2;
+    let pg = pages[pages.length - 1] || newPage();
+    if (pg.x + w > ATLAS) { pg.x = 0; pg.y += pg.rowH; pg.rowH = 0; }
+    if (pg.y + h > ATLAS) { pg = newPage(); }
+    pg.ctx.drawImage(src, pg.x + 1, pg.y + 1, w - 2, h - 2);
+    const r = { pg, u0: (pg.x + 1) / ATLAS, u1: (pg.x + w - 1) / ATLAS, v0: 1 - (pg.y + h - 1) / ATLAS, v1: 1 - (pg.y + 1) / ATLAS };
+    pg.x += w; pg.rowH = Math.max(pg.rowH, h);
+    pg.t.needsUpdate = true;
+    return r;
+  };
   const label = (parent, lines, x, y, w, h, opts = {}) => {
-    const t = G.tex(G.placard(lines, { w: opts.pw || 512, h: Math.round((opts.pw || 512) * h / w), size: opts.size || 60, color: opts.color, bg: opts.bg, weight: opts.weight }));
-    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: !opts.bg, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: !!opts.bg });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    const src = G.placard(lines, { w: opts.pw || 512, h: Math.round((opts.pw || 512) * h / w), size: opts.size || 60, color: opts.color, bg: opts.bg, weight: opts.weight });
+    const r = atlasPut(src);
+    const geo = new THREE.PlaneGeometry(w, h);
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) ? r.u1 : r.u0, uv.getY(i) ? r.v1 : r.v0);
+    const m = new THREE.Mesh(geo, opts.bg ? r.pg.solid : r.pg.clear);
     m.position.set(x, y, opts.z ?? 0.0006);
     if (opts.rot) m.rotation.set(...opts.rot);
     m.receiveShadow = true;

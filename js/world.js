@@ -516,12 +516,12 @@ export function createWorld({ onProgress } = {}) {
 
   // ------------------------------------------------------------ trees (instanced)
   {
-    const trunk = new THREE.CylinderGeometry(0.25, 0.35, 3, 5); trunk.translate(0, 1.5, 0);
-    const c1 = new THREE.ConeGeometry(2.6, 6, 7); c1.translate(0, 5.5, 0);
-    const c2 = new THREE.ConeGeometry(1.9, 4.5, 7); c2.translate(0, 8, 0);
+    const trunk = new THREE.CylinderGeometry(0.25, 0.35, 3, 4, 1, true); trunk.translate(0, 1.5, 0);
+    const c1 = new THREE.ConeGeometry(2.6, 6, 6, 1, true); c1.translate(0, 5.5, 0);
+    const c2 = new THREE.ConeGeometry(1.9, 4.5, 6, 1, true); c2.translate(0, 8, 0);
     const paint = (g, r, gg, b) => { const n = g.attributes.position.count; const a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = r; a[i * 3 + 1] = gg; a[i * 3 + 2] = b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
     const tree = mergeGeometries([paint(trunk, 0.35, 0.25, 0.15), paint(c1, 0.2, 0.36, 0.18), paint(c2, 0.22, 0.4, 0.2)]);
-    const COUNT = 4200;
+    const COUNT = 3200;
     const im = new THREE.InstancedMesh(tree, new THREE.MeshLambertMaterial({ vertexColors: true }), COUNT);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
     let n = 0, tries = 0;
@@ -595,16 +595,44 @@ export function createWorld({ onProgress } = {}) {
       ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: true, opacity: 0.95 });
-    const g = new THREE.Group();
-    for (let i = 0; i < 90; i++) {
-      const sp = new THREE.Sprite(mat);
-      const x = (hash(i, 501) - 0.5) * 36000, z = (hash(i, 777) - 0.5) * 36000;
-      const s = 500 + hash(i, 4) * 900;
-      sp.scale.set(s * 1.6, s, 1); sp.position.set(x, FIELD + 1250 + hash(i, 8) * 500, z);
-      g.add(sp);
+    // All clouds in one geometry; the vertex shader turns each quad to face the camera.
+    const COUNT = 110;
+    const pos = new Float32Array(COUNT * 4 * 3), corner = new Float32Array(COUNT * 4 * 2), size = new Float32Array(COUNT * 4 * 2), uv = new Float32Array(COUNT * 4 * 2);
+    const idx = [];
+    const cs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    for (let i = 0; i < COUNT; i++) {
+      const x = (hash(i, 501) - 0.5) * 36000, z = (hash(i, 777) - 0.5) * 36000, y = FIELD + 1250 + hash(i, 8) * 500;
+      const sz = 500 + hash(i, 4) * 900;
+      for (let k = 0; k < 4; k++) {
+        const v = i * 4 + k;
+        pos.set([x, y, z], v * 3); corner.set(cs[k], v * 2); size.set([sz * 0.8, sz * 0.5], v * 2); uv.set([(cs[k][0] + 1) / 2, (cs[k][1] + 1) / 2], v * 2);
+      }
+      const o = i * 4; idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
     }
-    return g;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('corner', new THREE.BufferAttribute(corner, 2));
+    g.setAttribute('size', new THREE.BufferAttribute(size, 2));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { map: { value: tex } }]),
+      vertexShader: `attribute vec2 corner; attribute vec2 size; varying vec2 vUv;
+        #include <fog_pars_vertex>
+        void main() { vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); mvPosition.xy += corner * size;
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: `uniform sampler2D map; varying vec2 vUv;
+        #include <fog_pars_fragment>
+        void main() { vec4 c = texture2D(map, vUv); if (c.a < 0.02) discard; gl_FragColor = vec4(c.rgb, c.a * 0.95);
+          #include <fog_fragment>
+        }`,
+    });
+    const m = new THREE.Mesh(g, mat);
+    m.frustumCulled = false;
+    return m;
   })();
   group.add(clouds);
 

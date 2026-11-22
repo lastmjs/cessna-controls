@@ -11,6 +11,7 @@ import { buildExterior } from './airplane.js';
 import { createWorld, FIELD } from './world.js';
 import { createSim, initialState } from './sim.js';
 import { createSimMode } from './simmode.js';
+import { collectObjects, buildStaticMerge } from './merge.js';
 import { setAnisotropy, canvas as mkCanvas } from './gauges.js';
 import { createUI } from './ui.js';
 
@@ -39,6 +40,8 @@ console.info(`World built in ${Math.round(performance.now() - tWorld)} ms`);
 export const WORLD_Y = -(FIELD + 0.05 + 1.15);
 world.group.position.y = WORLD_Y;
 scene.add(world.group);
+// Merge the world's static buildings and pavement (keeps the sky, windsock and clouds separate)
+buildStaticMerge(world.group, new Set([world.sky, world.sock, world.clouds])).setMerged(true);
 scene.fog = new THREE.Fog(0xc0d3e4, 2500, 26000);
 
 // ------------------------------------------------------------------ lights
@@ -65,6 +68,8 @@ const aircraft = new THREE.Group();
 aircraft.add(cockpit.root, exterior.root);
 scene.add(aircraft);
 exterior.H.chocks.visible = false;
+const staticMerge = buildStaticMerge(aircraft, collectObjects(cockpit.H, exterior.H));
+console.info(`Merged ${staticMerge.replaced} static parts into ${staticMerge.count} meshes`);
 const sim = createSim(cockpit.H);
 
 // ------------------------------------------------------------------ camera
@@ -311,6 +316,7 @@ let simSavedState = null;
 const simMode = createSimMode({
   renderer, scene, camera, world, aircraft, cockpit, exterior, sim, WORLD_Y, sun, controls,
   pick: (x, y) => pick(x, y),
+  setMaxPixelRatio: (r) => { perf.max = r; perf.ratio = Math.min(perf.ratio, r, window.devicePixelRatio); renderer.setPixelRatio(perf.ratio); renderer.setSize(window.innerWidth, window.innerHeight); },
   onExit: () => setMode('study'),
 });
 function setMode(m) {
@@ -320,10 +326,12 @@ function setMode(m) {
     selPass.selectedObjects = []; hovPass.selectedObjects = [];
     camera.clearViewOffset();
     if (simSavedState) Object.assign(sim.state, simSavedState);
+    staticMerge.setMerged(true);
     simMode.enter();
   } else if (m === 'study' && simMode.active) {
     simSavedState = { ...sim.state };
     simMode.exit();
+    staticMerge.setMerged(false);
     Object.assign(sim.state, initialState());
     aircraft.position.set(0, 0, 0); aircraft.quaternion.identity(); aircraft.updateMatrixWorld(true);
     sun.position.copy(STUDY_SUN.pos); sun.target.position.copy(STUDY_SUN.target); sun.target.updateMatrixWorld();
@@ -338,13 +346,13 @@ function setMode(m) {
 document.getElementById('btn-fly').addEventListener('click', () => setMode('sim'));
 
 // Adaptive resolution in the simulator: keep the frame rate up on phones.
-const perf = { t: 0, frames: 0, ratio: Math.min(window.devicePixelRatio, 2) };
+const perf = { t: 0, frames: 0, ratio: Math.min(window.devicePixelRatio, 2), max: 2 };
 function adaptResolution(rawDt) {
   perf.t += rawDt; perf.frames++;
   if (perf.t < 2) return;
   const ms = perf.t / perf.frames * 1000;
   perf.t = 0; perf.frames = 0;
-  const max = Math.min(window.devicePixelRatio, 2);
+  const max = Math.min(window.devicePixelRatio, perf.max);
   if (ms > 24 && perf.ratio > 0.75) perf.ratio = Math.max(0.75, perf.ratio - 0.25);
   else if (ms < 13 && perf.ratio < max) perf.ratio = Math.min(max, perf.ratio + 0.25);
   else return;
