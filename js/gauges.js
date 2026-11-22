@@ -365,65 +365,45 @@ export function vorFace(gs) {
   return c;
 }
 
-// ---------------- Attitude indicator ball (redrawn as pitch changes) ----------------
+// ---------------- Attitude indicator ball
+// The horizon is drawn once on a tall strip covering +90..-90 degrees of pitch; pitch changes
+// only slide the texture, so nothing is redrawn while flying.
 export function makeAI() {
-  const S = 1024, c = canvas(S), ctx = c.getContext('2d');
+  const W = 512, H = 2048, ppd = H / 180;
+  const c = canvas(W, H), ctx = c.getContext('2d');
+  const C = W / 2, hy = H / 2;
+  const sky = ctx.createLinearGradient(0, 0, 0, hy);
+  sky.addColorStop(0, '#0f3b74'); sky.addColorStop(1, '#3b8ad8');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, hy);
+  const gnd = ctx.createLinearGradient(0, hy, 0, H);
+  gnd.addColorStop(0, '#8a5a2b'); gnd.addColorStop(1, '#3a2410');
+  ctx.fillStyle = gnd; ctx.fillRect(0, hy, W, H - hy);
+  ctx.fillStyle = WHITE; ctx.fillRect(0, hy - 2, W, 4);
+  for (let p = -60; p <= 60; p += 5) {
+    if (p === 0) continue;
+    const y = hy - p * ppd, w = p % 10 === 0 ? 90 : 44;
+    ctx.fillRect(C - w / 2, y - 1.5, w, 3);
+    if (p % 10 === 0) { text(ctx, String(Math.abs(p)), C - w / 2 - 22, y, 20); text(ctx, String(Math.abs(p)), C + w / 2 + 22, y, 20); }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 3;
+  for (const a of [-50, -25, 25, 50]) { ctx.beginPath(); ctx.moveTo(C, hy); ctx.lineTo(C + Math.tan(a * Math.PI / 180) * 400, hy + 400); ctx.stroke(); }
   const t = tex(c);
+  t.repeat.set(1, W / H);
+  // Bank scale ring that turns with the horizon
+  const rc = canvas(512), r = rc.getContext('2d');
+  r.translate(256, 256); r.fillStyle = WHITE;
+  for (const b of [-60, -30, -20, -10, 10, 20, 30, 60]) { r.save(); r.rotate(b * Math.PI / 180); r.fillRect(-2, -252, 4, Math.abs(b) % 30 === 0 ? 34 : 22); r.restore(); }
+  for (const b of [-45, 45, 0]) {
+    r.save(); r.rotate(b * Math.PI / 180); r.beginPath(); r.moveTo(0, b ? -226 : -218); r.lineTo(b ? -7 : -13, -250); r.lineTo(b ? 7 : 13, -250); r.closePath(); r.fill(); r.restore();
+  }
+  const ringTexture = tex(rc);
   function draw(pitchDeg) {
-    const C = S / 2, ppd = 9; // pixels per degree of pitch
-    const hy = C + pitchDeg * ppd;
-    ctx.clearRect(0, 0, S, S);
-    ctx.save();
-    ctx.beginPath(); ctx.arc(C, C, C, 0, Math.PI * 2); ctx.clip();
-    const sky = ctx.createLinearGradient(0, hy - 500, 0, hy);
-    sky.addColorStop(0, '#174f94'); sky.addColorStop(1, '#3b8ad8');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, S, hy);
-    const gnd = ctx.createLinearGradient(0, hy, 0, hy + 500);
-    gnd.addColorStop(0, '#8a5a2b'); gnd.addColorStop(1, '#4e3015');
-    ctx.fillStyle = gnd; ctx.fillRect(0, hy, S, S - hy);
-    ctx.fillStyle = WHITE; ctx.fillRect(0, hy - 4, S, 8);
-    // Pitch ladder
-    for (let p = -20; p <= 20; p += 5) {
-      if (p === 0) continue;
-      const y = hy - p * ppd;
-      const w = p % 10 === 0 ? 170 : 80;
-      ctx.fillRect(C - w / 2, y - 3, w, 6);
-      if (p % 10 === 0) {
-        text(ctx, String(Math.abs(p)), C - w / 2 - 36, y, 34);
-        text(ctx, String(Math.abs(p)), C + w / 2 + 36, y, 34);
-      }
-    }
-    // Ground perspective lines
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 5;
-    for (const a of [-50, -25, 25, 50]) {
-      ctx.beginPath(); ctx.moveTo(C, hy);
-      ctx.lineTo(C + Math.tan(a * Math.PI / 180) * 500, hy + 500); ctx.stroke();
-    }
-    // Bank scale ring (rotates with the ball)
-    ctx.restore();
-    ctx.save();
-    ctx.translate(C, C);
-    ctx.strokeStyle = WHITE;
-    for (const b of [-60, -30, -20, -10, 10, 20, 30, 60]) {
-      const big = Math.abs(b) === 30 || Math.abs(b) === 60;
-      ctx.save(); ctx.rotate(b * Math.PI / 180);
-      ctx.fillStyle = WHITE;
-      ctx.fillRect(-4, -505, 8, big ? 70 : 45);
-      ctx.restore();
-    }
-    for (const b of [-45, 45]) {
-      ctx.save(); ctx.rotate(b * Math.PI / 180);
-      ctx.beginPath(); ctx.moveTo(0, -455); ctx.lineTo(-14, -500); ctx.lineTo(14, -500); ctx.closePath();
-      ctx.fillStyle = WHITE; ctx.fill();
-      ctx.restore();
-    }
-    ctx.beginPath(); ctx.moveTo(0, -440); ctx.lineTo(-26, -500); ctx.lineTo(26, -500); ctx.closePath();
-    ctx.fillStyle = WHITE; ctx.fill();
-    ctx.restore();
-    t.needsUpdate = true;
+    const p = Math.max(-60, Math.min(60, pitchDeg));
+    const vCenter = 1 - (hy + p * ppd) / H;
+    t.offset.y = vCenter - (W / H) / 2;
   }
   draw(0);
-  return { canvas: c, texture: t, draw };
+  return { texture: t, ringTexture, draw };
 }
 
 // Fixed outer mask for the attitude indicator: black ring with the bank index at the top.

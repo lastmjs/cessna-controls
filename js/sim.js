@@ -146,11 +146,17 @@ export function createSim(H) {
     }
   }
 
+  // When the simulator is running, `flight` is the flight model state and drives every gauge.
+  let flight = null;
   function update(dt, now) {
     runDemo(dt);
-    // Key springs back from START to BOTH unless a demo holds it there.
     const keyPos = Math.round(s.key);
     const bus = s.bat > 0.5;
+    if (flight) {
+      s.running = flight.running; s.rpm = flight.rpm; s.flaps = flight.flaps;
+      apply(now, bus, keyPos);
+      return;
+    }
     const fuelOn = Math.abs(wrap180(s.fuelSel - 180)) > 30;
     const mixtureOk = s.mixture < 0.85;
     if (keyPos === 4 && bus) {
@@ -236,8 +242,9 @@ export function createSim(H) {
     H.identBtn.position.z = 0.004 - s.ident * 0.0025;
 
     // ---------- electrical
-    const charging = s.alt > 0.5 && s.running && bus;
-    const amps = !bus ? 0 : charging ? 4 + (s.sw_land ? 2 : 0) : -(6 + (s.avionics ? 4 : 0) + (s.sw_land ? 8 : 0) + (s.sw_pitot ? 10 : 0));
+    const F = flight;
+    const charging = F ? F.altOut : s.alt > 0.5 && s.running && bus;
+    const amps = F ? F.ampsNet : !bus ? 0 : charging ? 4 + (s.sw_land ? 2 : 0) : -(6 + (s.avionics ? 4 : 0) + (s.sw_land ? 8 : 0) + (s.sw_pitot ? 10 : 0));
     const avPower = bus && s.avionics > 0.5 && !(keyPos === 4);
     const lowV = bus && !charging;
     H.lowVolt.emissive.setHex(lowV ? 0xff1a00 : 0x000000);
@@ -260,26 +267,31 @@ export function createSim(H) {
     // ---------- gauges
     const N = H.needles;
     const rot = (n, deg) => { n.rotation.z = -deg * DEG; };
-    rot(N.asi, asiDegOf(s.d_asi ?? 0));
-    const indAlt = (s.d_alt ?? FIELD_ELEV) + (s.baro - 29.92) * 1000;
+    rot(N.asi, asiDegOf(F ? F.ias / 0.514444 : (s.d_asi ?? 0)));
+    const indAlt = Math.max(0, (F ? F.alt / 0.3048 : (s.d_alt ?? FIELD_ELEV)) + (s.baro - 29.92) * 1000);
     rot(N.alt100, (indAlt % 1000) / 1000 * 360);
     rot(N.alt1k, (indAlt % 10000) / 10000 * 360);
     rot(N.alt10k, indAlt / 100000 * 360);
     const baroR = Math.round(s.baro * 100) / 100;
     if (baroR !== lastBaro) { lastBaro = baroR; H.redrawAlt(baroR); }
-    rot(N.vsi, vsiDegOf(s.d_vsi ?? 0));
+    rot(N.vsi, vsiDegOf(F ? F.vsiLag * 196.85 : (s.d_vsi ?? 0)));
     rot(N.tach, tachDegOf(s.rpm));
-    const suction = s.rpm < 300 ? s.rpm / 300 * 2 : clamp(3.4 + (s.rpm - 700) / 1700 * 1.9, 0, 6);
+    const suction = F ? F.suction : s.rpm < 300 ? s.rpm / 300 * 2 : clamp(3.4 + (s.rpm - 700) / 1700 * 1.9, 0, 6);
     rot(N.suction, 225 + suction / 10 * 270);
     rot(N.ammeter, clamp(amps, -60, 60) / 60 * 110);
-    const egt = s.running ? clamp(0.3 + 0.3 * s.throttle + (s.mixture < 0.4 ? s.mixture * 0.6 : 0.24 - (s.mixture - 0.4) * 0.6), 0, 1) : 0;
+    const egt = F ? F.egt : s.running ? clamp(0.3 + 0.3 * s.throttle + (s.mixture < 0.4 ? s.mixture * 0.6 : 0.24 - (s.mixture - 0.4) * 0.6), 0, 1) : 0;
     rot(N.egt, -60 + egt * 120);
     rot(N.egtRef, -60 + 0.72 * 120);
     const cl = (n, t) => rot(n, -55 + clamp(t, 0, 1) * 110);
-    cl(N.fuelL, bus ? (s.d_fuelL ?? 0.8) : 0);
-    cl(N.fuelR, bus ? (s.d_fuelR ?? 0.72) : 0);
-    cl(N.oilT, bus ? (s.d_oilT ?? 0.55) : 0);
-    cl(N.oilP, bus ? (s.d_oilP ?? (s.running ? 0.45 + s.rpm / 2700 * 0.25 : 0)) : 0);
+    if (F) {
+      cl(N.fuelL, bus ? F.fuelL / 26.5 : 0); cl(N.fuelR, bus ? F.fuelR / 26.5 : 0);
+      cl(N.oilT, bus ? F.oilT : 0); cl(N.oilP, F.oilP);
+    } else {
+      cl(N.fuelL, bus ? (s.d_fuelL ?? 0.8) : 0);
+      cl(N.fuelR, bus ? (s.d_fuelR ?? 0.72) : 0);
+      cl(N.oilT, bus ? (s.d_oilT ?? 0.55) : 0);
+      cl(N.oilP, bus ? (s.d_oilP ?? (s.running ? 0.45 + s.rpm / 2700 * 0.25 : 0)) : 0);
+    }
     const d = new Date(now ? Date.now() : 0);
     const sec = d.getSeconds() + d.getMilliseconds() / 1000;
     rot(N.clockS, sec * 6);
@@ -287,26 +299,31 @@ export function createSim(H) {
     rot(N.clockH, ((d.getHours() % 12) + d.getMinutes() / 60) * 30);
 
     // Attitude indicator
-    const pitch = (s.d_pitch ?? 0), bank = (s.d_bank ?? 0);
+    let pitch = (s.d_pitch ?? 0), bank = (s.d_bank ?? 0);
+    if (F) {
+      // A gyro that has not spun up yet sits tilted
+      const e = 1 - F.gyro;
+      pitch = F.pitch / DEG * F.gyro + e * 12; bank = F.roll / DEG * F.gyro + e * 28;
+    }
     if (pitch !== lastAI) { lastAI = pitch; H.ai.draw(pitch); }
     H.ai.ball.rotation.z = bank * DEG;
     H.ai.plane.position.y = s.aiKnob * 0.006;
     // Turn coordinator
-    H.tc.plane.rotation.z = -(s.d_turn ?? 0) * 20 * DEG;
-    const slip = s.d_slip ?? (-s.rudder * 0.5);
+    H.tc.plane.rotation.z = -clamp(F ? F.turnInd / (3 * DEG) : (s.d_turn ?? 0), -1.6, 1.6) * 20 * DEG;
+    const slip = F ? F.ball * 5 : s.d_slip ?? (-s.rudder * 0.5);
     H.tc.ball.position.x = clamp(slip, -1, 1) * H.tc.r * 0.32;
     H.tc.ball.position.y = -H.tc.r * 0.6 + Math.abs(clamp(slip, -1, 1)) * H.tc.r * 0.06;
     // Heading indicator and compass
-    const hdg = RUNWAY_HDG + (s.d_hdg ?? 0);
-    const hiHdg = hdg + s.hiOffset;
+    const hdg = F ? F.heading / DEG : RUNWAY_HDG + (s.d_hdg ?? 0);
+    const hiHdg = F ? (F.hiHeading ?? hdg) + s.hiOffset : hdg + s.hiOffset;
     H.hi.card.rotation.z = hiHdg * DEG;
     H.hi.bug.rotation.z = -(s.hdgBug - hiHdg) * DEG;
-    H.compassCard.rotation.y = hdg * DEG + Math.sin(now * 0.7) * 0.01;
+    H.compassCard.rotation.y = F ? F.compass : hdg * DEG + Math.sin(now * 0.7) * 0.01;
     // VOR indicators
     for (const [id, obs] of [['vor1', s.obs1], ['vor2', s.obs2]]) {
       const v = H[id];
       v.card.rotation.z = obs * DEG;
-      const dev = wrap180((id === 'vor1' ? VOR_BEARING : 155) - obs);
+      const dev = wrap180((F && F.vorBearing != null ? F.vorBearing : id === 'vor1' ? VOR_BEARING : 155) - obs);
       const to = Math.abs(dev) < 90;
       const cdiDev = to ? dev : -wrap180(dev + 180);
       v.cdi.rotation.z = clamp(cdiDev / 10, -1, 1) * 0.3 * (avPower ? 1 : 0);
@@ -318,6 +335,7 @@ export function createSim(H) {
 
   return {
     state: s, play, stop, update,
+    setFlight(f) { flight = f; lastPower = null; },
     get playing() { return demo ? demo.id : null; },
     get hobbs() { return hobbs; },
   };

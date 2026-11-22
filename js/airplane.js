@@ -242,7 +242,7 @@ export function buildExterior() {
   }
   H.propBlades = blades;
   // Motion-blurred disc shown when the engine is running
-  const discMat = new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const discMat = new THREE.MeshBasicMaterial({ color: 0x555555, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
   const disc = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.95, 48), discMat);
   disc.position.set(0, -0.04, spinnerZ - 0.05);
   root.add(disc);
@@ -464,7 +464,7 @@ export function buildExterior() {
     const blur = THREE.MathUtils.clamp((rpm - 250) / 600, 0, 1);
     H.propBlades.visible = blur < 0.98;
     H.propBlades.children.forEach(m => { if (m.material.transparent !== true) { /* keep */ } });
-    H.propDisc.material.opacity = blur * 0.22;
+    H.propDisc.material.opacity = blur * 0.07;
     if (fs) {
       fs.gearComp.forEach((cmp, i) => { const w = H.wheels[i === 0 ? 2 : i - 1]; if (w) w.susp.position.y = cmp; });
       H.wheels[2].spin.rotation.x = -fs.wheelRot[0]; H.wheels[0].spin.rotation.x = -fs.wheelRot[1]; H.wheels[1].spin.rotation.x = -fs.wheelRot[2];

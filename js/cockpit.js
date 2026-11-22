@@ -270,6 +270,8 @@ export function buildCockpit() {
     H.glowMats.push(ballMat);
     const ball = new THREE.Mesh(new THREE.CircleGeometry(g.r * 0.98, 96), ballMat);
     ball.position.z = -0.012; g.grp.add(ball);
+    const ring = new THREE.Mesh(new THREE.CircleGeometry(g.r * 0.98, 64), new THREE.MeshStandardMaterial({ map: ai.ringTexture, transparent: true, depthWrite: false, roughness: 0.6 }));
+    ring.position.z = 0.0004; ball.add(ring);
     const mask = texPlane(g.grp, G.aiMask(), g.r * 2, g.r * 2, 0, 0, -0.0095, { circle: true, transparent: true });
     mask.material.alphaTest = 0.1;
     // Fixed miniature airplane (orange)

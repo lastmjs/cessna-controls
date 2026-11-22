@@ -9,12 +9,13 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { buildCockpit } from './cockpit.js';
 import { buildExterior } from './airplane.js';
 import { createWorld, FIELD } from './world.js';
-import { createSim } from './sim.js';
+import { createSim, initialState } from './sim.js';
+import { createSimMode } from './simmode.js';
 import { setAnisotropy, canvas as mkCanvas } from './gauges.js';
 import { createUI } from './ui.js';
 
 // ------------------------------------------------------------------ renderer
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -58,9 +59,12 @@ fill.position.set(0, 0.6, 1.0); scene.add(fill);
 
 // ------------------------------------------------------------------ cockpit
 const cockpit = buildCockpit();
-scene.add(cockpit.root);
 const exterior = buildExterior();
-scene.add(exterior.root);
+// The airplane: cockpit and outside share one frame (origin at the instrument panel).
+const aircraft = new THREE.Group();
+aircraft.add(cockpit.root, exterior.root);
+scene.add(aircraft);
+exterior.H.chocks.visible = false;
 const sim = createSim(cockpit.H);
 
 // ------------------------------------------------------------------ camera
@@ -244,9 +248,9 @@ const ui = createUI({
 });
 
 let down = null;
-renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+renderer.domElement.addEventListener('pointerdown', (e) => { if (simMode.active) return; down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!down) return;
+  if (!down || simMode.active) return;
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   down = null;
   if (moved > 6) return;
@@ -256,7 +260,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 });
 let hoverReq = null;
 renderer.domElement.addEventListener('pointermove', (e) => {
-  if (e.pointerType === 'touch') return;
+  if (e.pointerType === 'touch' || simMode.active) return;
   hoverReq = { x: e.clientX, y: e.clientY };
 });
 renderer.domElement.addEventListener('pointerleave', () => { hoverReq = null; ui.hover(null); hovPass.selectedObjects = []; });
@@ -301,10 +305,66 @@ function freeFraction() {
   return Math.max(0.35, Math.min((W - ins.left - ins.right) / W, (H - ins.bottom) / H));
 }
 
+// ------------------------------------------------------------------ simulator mode
+const STUDY_SUN = { pos: sun.position.clone(), target: sun.target.position.clone(), cam: { ...sun.shadow.camera } };
+let simSavedState = null;
+const simMode = createSimMode({
+  renderer, scene, camera, world, aircraft, cockpit, exterior, sim, WORLD_Y, sun, controls,
+  pick: (x, y) => pick(x, y),
+  onExit: () => setMode('study'),
+});
+function setMode(m) {
+  if (m === 'sim' && !simMode.active) {
+    sim.stop();
+    ui.picked(null);
+    selPass.selectedObjects = []; hovPass.selectedObjects = [];
+    camera.clearViewOffset();
+    if (simSavedState) Object.assign(sim.state, simSavedState);
+    simMode.enter();
+  } else if (m === 'study' && simMode.active) {
+    simSavedState = { ...sim.state };
+    simMode.exit();
+    Object.assign(sim.state, initialState());
+    aircraft.position.set(0, 0, 0); aircraft.quaternion.identity(); aircraft.updateMatrixWorld(true);
+    sun.position.copy(STUDY_SUN.pos); sun.target.position.copy(STUDY_SUN.target); sun.target.updateMatrixWorld();
+    Object.assign(sun.shadow.camera, { left: -1.4, right: 1.4, top: 1.4, bottom: -1.4, near: 0.5, far: 12 });
+    sun.shadow.camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    camera.fov = 52; resize();
+    const v = VIEWS.pilot; camera.position.set(...v.pos); controls.target.set(...v.target); controls.update();
+  }
+  try { localStorage.setItem('cessna-controls:mode', m); } catch { /* ignore */ }
+}
+document.getElementById('btn-fly').addEventListener('click', () => setMode('sim'));
+
+// Adaptive resolution in the simulator: keep the frame rate up on phones.
+const perf = { t: 0, frames: 0, ratio: Math.min(window.devicePixelRatio, 2) };
+function adaptResolution(rawDt) {
+  perf.t += rawDt; perf.frames++;
+  if (perf.t < 2) return;
+  const ms = perf.t / perf.frames * 1000;
+  perf.t = 0; perf.frames = 0;
+  const max = Math.min(window.devicePixelRatio, 2);
+  if (ms > 24 && perf.ratio > 0.75) perf.ratio = Math.max(0.75, perf.ratio - 0.25);
+  else if (ms < 13 && perf.ratio < max) perf.ratio = Math.min(max, perf.ratio + 0.25);
+  else return;
+  renderer.setPixelRatio(perf.ratio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
 const clock = new THREE.Clock();
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = Math.min(clock.getDelta(), 0.1);
+  const dt = Math.min(rawDt, 0.05);
   const now = clock.elapsedTime;
+  if (simMode.active) {
+    simMode.frame(rawDt, now);
+    sim.update(dt, now);
+    renderer.render(scene, camera);
+    adaptResolution(rawDt);
+    requestAnimationFrame(frame);
+    return;
+  }
   if (tween) {
     tween.t += dt;
     const f = THREE.MathUtils.smootherstep(Math.min(tween.t / tween.dur, 1), 0, 1);
@@ -334,4 +394,4 @@ requestAnimationFrame(frame);
 document.getElementById('loading').classList.add('done');
 
 // Exposed for debugging in the console
-window.__cockpit = { scene, camera, controls, cockpit, sim, renderer };
+window.__cockpit = { scene, camera, controls, cockpit, sim, renderer, simMode, setMode, aircraft, world };

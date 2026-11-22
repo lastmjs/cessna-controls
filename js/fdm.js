@@ -362,8 +362,8 @@ export function createFDM() {
       const vLat = vp[0] * lat[0] + vp[1] * lat[1];
       const surfMu = gnd.type === 'runway' ? 0.8 : gnd.type === 'grass' ? 0.5 : 0.6;
       const roll = gnd.type === 'grass' ? 0.06 : 0.018;
-      const brake = g.brake === 'L' ? brakeL : g.brake === 'R' ? brakeR : 0;
-      const fLongMax = (roll + brake * surfMu * 0.85) * N;
+      const brake = c.chocks && g.brake ? 1 : g.brake === 'L' ? brakeL : g.brake === 'R' ? brakeR : 0;
+      const fLongMax = (roll + brake * surfMu * (c.chocks && g.brake ? 2.2 : 0.85)) * N;
       const fLong = -clamp(vLong * 9000, -fLongMax, fLongMax);
       const caster = g.steer && Math.abs(brakeL - brakeR) > 0.4 && Math.abs(c.rudder) > 0.8;
       const latMu = (caster ? 0.08 : 1) * surfMu;
@@ -410,7 +410,7 @@ export function createFDM() {
     const accN = qRot(st.q, accB);
     st.vel = add(st.vel, scl(accN, dt));
     // Static friction holds a stopped airplane with brakes set
-    if (st.onGround && len(st.vel) < 0.05 && (brakeL > 0.5 && brakeR > 0.5) && thrust < 0.25 * m * G0 * 0.8) { st.vel = [0, 0, st.vel[2]]; }
+    if (st.onGround && len(st.vel) < 0.05 && ((brakeL > 0.5 && brakeR > 0.5) || c.chocks) && thrust < 0.25 * m * G0 * (c.chocks ? 1.6 : 0.8)) { st.vel = [0, 0, st.vel[2]]; }
     st.pos = add(st.pos, scl(st.vel, dt));
     const wdot = [
       (M[0] - (Izz - Iyy) * st.w[1] * st.w[2]) / Ixx,
