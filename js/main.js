@@ -135,7 +135,7 @@ function focusOn(id) {
   for (const o of objs) box.expandByObject(o);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3()).length();
-  const dist = THREE.MathUtils.clamp(size * 1.6, 0.14, 1.1);
+  const dist = THREE.MathUtils.clamp(size * 1.6 / freeFraction(), 0.14, 1.3);
   // Look from the seats, slightly above: never from behind the panel.
   const dir = camera.position.clone().sub(center).normalize();
   dir.lerp(new THREE.Vector3(center.x * 0.3, 0.45, 1).normalize(), 0.65).normalize();
@@ -145,6 +145,24 @@ function focusOn(id) {
   // Stay inside the cabin
   pos.x = THREE.MathUtils.clamp(pos.x, -0.5, 0.5); pos.y = THREE.MathUtils.clamp(pos.y, -0.4, 0.9); pos.z = THREE.MathUtils.clamp(pos.z, 0.05, 1.5);
   flyTo(pos.toArray(), center.toArray());
+}
+
+// After a click, if the docked card (or sidebar) covers the part, slide the view sideways
+// (same viewing angle and distance) until the part sits in the free area.
+function ensureVisible(id) {
+  const objs = cockpit.parts[id];
+  if (!objs || tween) return;
+  const box = new THREE.Box3();
+  for (const o of objs) box.expandByObject(o);
+  const center = box.getCenter(new THREE.Vector3());
+  const W = window.innerWidth, H = window.innerHeight, ins = ui.insets();
+  const p = center.clone().project(camera);
+  const sx = (p.x + 1) / 2 * W, sy = (1 - p.y) / 2 * H;
+  const m = 60;
+  const inside = sx > ins.left + m && sx < W - ins.right - m && sy > 70 && sy < H - ins.bottom - m && p.z < 1;
+  if (inside) return;
+  const d = center.clone().sub(controls.target);
+  flyTo(camera.position.clone().add(d).toArray(), center.toArray(), 0.7);
 }
 
 // ------------------------------------------------------------------ post-processing and highlight
@@ -255,7 +273,7 @@ const outlineObjects = (id) => (id ? cockpit.parts[id] || [] : []);
 // ------------------------------------------------------------------ UI
 const ui = createUI({
   sim,
-  onSelect(id) { selPass.selectedObjects = outlineObjects(id); },
+  onSelect(id) { selPass.selectedObjects = outlineObjects(id); if (id) hovPass.selectedObjects = []; },
   onFocus: focusOn,
   onView(name) { const v = VIEWS[name]; if (v) flyTo(v.pos, v.target); },
   getCamera() { return { pos: camera.position.toArray(), target: controls.target.toArray() }; },
@@ -270,7 +288,9 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   down = null;
   if (moved > 6) return;
-  ui.picked(pick(e.clientX, e.clientY));
+  const id = pick(e.clientX, e.clientY);
+  ui.picked(id);
+  if (id && !document.body.classList.contains('quizzing')) setTimeout(() => ensureVisible(id), 450);
 });
 let hoverReq = null;
 renderer.domElement.addEventListener('pointermove', (e) => {
@@ -300,6 +320,25 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+const viewShift = { x: 0, y: 0 };
+function applyViewShift(dt) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const ins = ui.insets();
+  const tx = (ins.left - ins.right) / 2, ty = -ins.bottom / 2;
+  const k = Math.min(1, dt * 6);
+  viewShift.x += (tx - viewShift.x) * k; viewShift.y += (ty - viewShift.y) * k;
+  if (Math.abs(viewShift.x) < 0.5 && Math.abs(viewShift.y) < 0.5 && tx === 0 && ty === 0) {
+    if (camera.view && camera.view.enabled) { camera.clearViewOffset(); }
+    return;
+  }
+  camera.setViewOffset(W, H, -viewShift.x, -viewShift.y, W, H);
+}
+// Fraction of the screen that is free for the 3D view (used to back the camera off when framing).
+function freeFraction() {
+  const W = window.innerWidth, H = window.innerHeight, ins = ui.insets();
+  return Math.max(0.35, Math.min((W - ins.left - ins.right) / W, (H - ins.bottom) / H));
+}
+
 const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -311,6 +350,7 @@ function frame() {
     controls.target.lerpVectors(tween.t0, tween.t1, f);
     if (tween.t >= tween.dur) { tween = null; ui.saveCamera(); }
   }
+  applyViewShift(dt);
   controls.update();
   sim.update(dt, now);
   doHover();

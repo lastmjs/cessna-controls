@@ -1,7 +1,8 @@
 import { COMPONENTS, CATEGORIES, BY_ID } from './components.js';
 import { hasAction, actionKind } from './sim.js';
 
-const KEY = 'cesna-controls:v1';
+const KEY = 'cessna-controls:v1';
+const OLD_KEY = 'cesna-controls:v1';
 const T = {
   en: {
     title: 'Cessna 172 / 175 Controls', sub: 'Click any part to learn its name',
@@ -30,7 +31,7 @@ const T = {
 };
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY)) || {}; } catch { return {}; }
 }
 
 export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera, controls }) {
@@ -40,7 +41,7 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
     descLang: saved.descLang || 'both',
     learned: new Set(saved.learned || []),
     quizBest: saved.quizBest || 0,
-    sidebar: saved.sidebar ?? window.innerWidth > 900,
+    sidebar: window.innerWidth > 900 ? (saved.sidebar ?? true) : false,
     mini: saved.mini ?? window.innerWidth > 700,
     selected: null,
   };
@@ -103,37 +104,41 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
   const info = $('#info');
   function renderInfo() {
     const c = BY_ID[st.selected];
+    document.body.classList.toggle('info-open', !!c);
     if (!c) { info.hidden = true; return; }
     info.hidden = false;
     const cat = CATEGORIES[c.cat];
+    const L = st.descLang;                       // 'en' | 'es' | 'both'
+    const cl = L === 'both' ? st.uiLang : L;     // language for the card's buttons
+    const tc = (k) => T[cl][k] || T.en[k] || k;
     const kind = hasAction(c.id) ? actionKind(c.id) : null;
     let stateTxt = '';
     if (kind === 'toggle') {
       const key = c.id === 'avmaster' ? 'avionics' : c.id === 'master' ? 'bat' : c.id;
-      stateTxt = `<span class="state ${sim.state[key] ? 'on' : ''}">${sim.state[key] ? t('on') : t('off')}</span>`;
+      stateTxt = `<span class="state ${sim.state[key] ? 'on' : ''}">${sim.state[key] ? tc('on') : tc('off')}</span>`;
     }
     info.innerHTML = `
       <div class="info-head">
-        <span class="chip">${esc(cat.en)} · ${esc(cat.es)}</span>
+        <span class="chip">${L === 'both' ? `${esc(cat.en)} · ${esc(cat.es)}` : esc(cat[L])}</span>
         <span class="nav">
-          <button class="icon" id="act-prev" aria-label="${t('prev')}" title="${t('prev')} (←)">‹</button>
-          <button class="icon" id="act-next" aria-label="${t('next')}" title="${t('next')} (→)">›</button>
-          <button class="icon" id="info-close" aria-label="${t('close')}" title="${t('close')} (Esc)">✕</button>
+          <button class="icon" id="act-prev" aria-label="${tc('prev')}" title="${tc('prev')} (←)">‹</button>
+          <button class="icon" id="act-next" aria-label="${tc('next')}" title="${tc('next')} (→)">›</button>
+          <button class="icon" id="info-close" aria-label="${tc('close')}" title="${tc('close')} (Esc)">✕</button>
         </span>
       </div>
-      <h2 class="name-en" lang="en">${esc(c.en)}</h2>
-      <h2 class="name-es" lang="es">${esc(c.es)}</h2>
-      <div class="seg" role="group" aria-label="${t('desc')}">
-        ${['en', 'es', 'both'].map(l => `<button data-l="${l}" class="${st.descLang === l ? 'on' : ''}">${l === 'both' ? t('both') : l.toUpperCase()}</button>`).join('')}
+      ${L !== 'es' ? `<h2 class="name-en" lang="en">${esc(c.en)}</h2>` : ''}
+      ${L !== 'en' ? `<h2 class="name-es${L === 'es' ? ' solo' : ''}" lang="es">${esc(c.es)}</h2>` : ''}
+      <div class="seg" role="group" aria-label="${tc('desc')}">
+        ${['en', 'es', 'both'].map(l => `<button data-l="${l}" class="${L === l ? 'on' : ''}">${l === 'both' ? 'EN + ES' : l.toUpperCase()}</button>`).join('')}
       </div>
       <div class="desc">
-        ${st.descLang !== 'es' ? `<p lang="en">${esc(c.d)}</p>` : ''}
-        ${st.descLang !== 'en' ? `<p lang="es" class="es">${esc(c.dEs)}</p>` : ''}
+        ${L !== 'es' ? `<p lang="en">${esc(c.d)}</p>` : ''}
+        ${L !== 'en' ? `<p lang="es" class="es${L === 'es' ? ' solo' : ''}">${esc(c.dEs)}</p>` : ''}
       </div>
       <div class="actions">
-        ${kind ? `<button class="primary" id="act-run">${kind === 'toggle' ? '⏻ ' + t('toggle') : '▶ ' + t('demonstrate')}</button>${stateTxt}` : ''}
-        <button id="act-learn" class="${st.learned.has(c.id) ? 'learned' : ''}">${st.learned.has(c.id) ? t('unmark') : t('mark')}</button>
-        <button id="act-zoom">⌖ ${t('zoom')}</button>
+        ${kind ? `<button class="primary" id="act-run">${kind === 'toggle' ? '⏻ ' + tc('toggle') : '▶ ' + tc('demonstrate')}</button>${stateTxt}` : ''}
+        <button id="act-learn" class="${st.learned.has(c.id) ? 'learned' : ''}">${st.learned.has(c.id) ? tc('unmark') : tc('mark')}</button>
+        <button id="act-zoom">⌖ ${tc('zoom')}</button>
       </div>`;
     $('#info-close').onclick = () => select(null);
     info.querySelectorAll('.seg button').forEach(b => b.onclick = () => { st.descLang = b.dataset.l; save(); renderInfo(); });
@@ -177,7 +182,8 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
   function hover(id, x, y) {
     if (!id || quiz) { tip.hidden = true; return; }
     const c = BY_ID[id];
-    tip.innerHTML = `<span class="en">${esc(c.en)}</span><span class="es">${esc(c.es)}</span>`;
+    const L = st.descLang;
+    tip.innerHTML = (L !== 'es' ? `<span class="en">${esc(c.en)}</span>` : '') + (L !== 'en' ? `<span class="es${L === 'es' ? ' solo' : ''}">${esc(c.es)}</span>` : '');
     tip.hidden = false;
     const w = tip.offsetWidth;
     tip.style.left = `${Math.min(x + 16, window.innerWidth - w - 8)}px`;
@@ -270,6 +276,7 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
   const miniEl = $('#mini');
   function applyMini() {
     miniEl.hidden = !st.mini;
+    document.body.classList.toggle('mini-on', st.mini);
     viewsMenu.querySelector('[data-toggle=mini]').classList.toggle('checked', st.mini);
   }
   $('#mini-close').addEventListener('click', () => { st.mini = false; applyMini(); save(); });
@@ -327,6 +334,21 @@ export function createUI({ sim, onSelect, onFocus, onView, getCamera, setCamera,
     },
     hover,
     saveCamera: save,
+    // Pixels of the screen covered by docked panels, so the 3D view can center the free area.
+    insets() {
+      const W = window.innerWidth, H = window.innerHeight;
+      const out = { left: 0, right: 0, bottom: 0 };
+      const narrow = W < 700;
+      if (!narrow && st.sidebar && !quiz) {
+        const r = document.getElementById('sidebar').getBoundingClientRect();
+        out.left = Math.max(0, r.right);
+      }
+      if (st.selected && !quiz && !info.hidden) {
+        const r = info.getBoundingClientRect();
+        if (narrow) out.bottom = Math.max(0, H - r.top); else out.right = Math.max(0, W - r.left);
+      }
+      return out;
+    },
     tick() {
       // Keep the ON/OFF badge in sync when a switch changes.
       if (st.selected && hasAction(st.selected) && actionKind(st.selected) === 'toggle') {

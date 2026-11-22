@@ -11,6 +11,7 @@
   --bad: #ff6b5b;
   --radius: 14px;
   --side: 310px;
+  --card: 380px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -75,10 +76,15 @@ body.sidebar-open #sidebar { transform: none; }
 .item.done .tick { opacity: 1; }
 
 /* ---------- info card */
-#info { position: fixed; left: 16px; bottom: 16px; width: min(460px, calc(100vw - 32px)); background: var(--glass); z-index: 16;
+#info { position: fixed; right: 16px; top: 70px; width: var(--card); background: var(--glass); z-index: 16;
   border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 14px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 10px 40px rgba(0,0,0,.45); transition: left .25s ease; max-height: calc(100vh - 100px); overflow-y: auto; }
-body.sidebar-open #info { left: calc(var(--side) + 28px); }
+  box-shadow: 0 10px 40px rgba(0,0,0,.45); max-height: calc(100vh - 86px); overflow-y: auto; }
+/* With a part selected, the airplane sits under the card in the same right-hand column. */
+body.info-open.mini-on #info { max-height: calc(100vh - 86px - 190px - 10px); }
+body.info-open #mini { width: var(--card); height: 190px; }
+.name-es.solo, .desc p.es.solo, #tooltip .es.solo { color: var(--text); }
+.name-es.solo { font-size: 23px; font-weight: 700; margin-top: 4px; }
+#tooltip .es.solo { font-size: 13.5px; }
 #info[hidden] { display: none; }
 .info-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .chip { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
@@ -166,7 +172,7 @@ kbd { background: rgba(255,255,255,.1); border: 1px solid var(--line); border-ra
 @media (max-width: 900px) {
   .tools .lbl { display: none; }
   .tools button { padding: 8px 10px; }
-  body.sidebar-open #info { left: 16px; }
+  :root { --card: 330px; }
   #sidebar { z-index: 25; }
 }
 @media (max-width: 700px) {
@@ -177,8 +183,9 @@ kbd { background: rgba(255,255,255,.1); border: 1px solid var(--line); border-ra
   .tools { gap: 4px; flex-wrap: nowrap; }
   .tools button { padding: 7px 9px; }
   #sidebar { top: 60px; }
-  #info { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 52vh; padding: 12px 13px; }
-  body.sidebar-open #info { left: 8px; }
+  #info { left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; max-height: 44vh; padding: 12px 13px; }
+  body.info-open #mini { right: 8px; width: 160px; height: 120px; }
+  body.info-open.mini-on #info { max-height: 44vh; }
   .name-en { font-size: 20px; } .name-es { font-size: 17px; }
   #mini { top: 62px; right: 8px; bottom: auto; width: 160px; height: 120px; }
   #mini-title { display: none; }
