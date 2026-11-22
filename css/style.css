@@ -230,6 +230,7 @@ body.sim #topbar, body.sim #sidebar, body.sim #info, body.sim #mini, body.sim #h
 /* Touch controls */
 #sim-touch { display: none; }
 #sim-ui.touch:not(.walking) #sim-touch { display: block; }
+@media (max-height: 480px) { #sim-hud { font-size: 11px; } #sim-hud .row { line-height: 1.3; } #sim-yoke { width: 120px; height: 120px; bottom: 16px; } #sim-throttle { height: 120px; } #sim-tb { bottom: 14px; right: 150px; } #sim-rudder { bottom: 14px; } #sim-msg { top: 64px; } }
 #sim-walkpad { display: none; }
 #sim-ui.touch.walking #sim-walkpad { display: block; }
 #sim-yoke, #sim-walkpad { position: absolute; width: 150px; height: 150px; border-radius: 50%; background: rgba(10, 13, 18, 0.35); border: 2px solid rgba(255,255,255,0.25);
@@ -297,6 +298,8 @@ body.sim #topbar, body.sim #sidebar, body.sim #info, body.sim #mini, body.sim #h
 #sim-overlay .keys { font-size: 12px; margin-top: 14px; }
 #sim-overlay .crash h2 { color: #ff8a7a; }
 @media (max-width: 700px) {
+  #sim-hud { top: 58px; }
+  #sim-msg { top: auto; bottom: 330px; }
   #sim-buttons button span { display: none; }
   #sim-hud { font-size: 11.5px; min-width: 0; padding: 6px 8px; }
   #sim-hud .row b { min-width: 34px; font-size: 13px; }

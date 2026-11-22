@@ -361,7 +361,7 @@ export function createFDM() {
       const vLong = vp[0] * fw[0] + vp[1] * fw[1];
       const vLat = vp[0] * lat[0] + vp[1] * lat[1];
       const surfMu = gnd.type === 'runway' ? 0.8 : gnd.type === 'grass' ? 0.5 : 0.6;
-      const roll = gnd.type === 'grass' ? 0.06 : 0.018;
+      const roll = gnd.type === 'grass' ? 0.07 : 0.026;
       const brake = c.chocks && g.brake ? 1 : g.brake === 'L' ? brakeL : g.brake === 'R' ? brakeR : 0;
       const fLongMax = (roll + brake * surfMu * (c.chocks && g.brake ? 2.2 : 0.85)) * N;
       const fLong = -clamp(vLong * 9000, -fLongMax, fLongMax);

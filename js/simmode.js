@@ -132,6 +132,7 @@ export function createSimMode(o) {
     <div id="sim-walkpad"><div class="knob"></div></div>
     <div id="sim-systems" hidden></div>
     <div id="sim-overlay" hidden></div>`;
+  ui.hidden = true;
   document.body.appendChild(ui);
   const $ = (q) => ui.querySelector(q);
   const hud = $('#sim-hud'), msgEl = $('#sim-msg'), prompt = $('#sim-prompt'), promptBtn = $('#sim-prompt-btn');
@@ -339,14 +340,14 @@ export function createSimMode(o) {
       S.parkPull = 0; S.sw_taxi = 1;
       toast('Runway 36. Full throttle, rotate at 55 knots.', 'Pista 36. Potencia máxima, rote a 55 nudos.', 6000);
     } else {
-      hot(); F.fuelL = F.fuelR = 15; S.flapCmd = 2; F.flaps = 20; S.trim = 0.5; S.throttle = 0.42; S.carbheat = 1;
+      hot(); F.fuelL = F.fuelR = 15; S.flapCmd = 2; F.flaps = 20; S.trim = -0.1; S.throttle = 0.35; S.carbheat = 1;
       const dist = 5600;
       fdm.placeOnGround(-(RWY.z1 + dist), RWY.x, FIELD + 0.05, 0);
       F.pos[2] = -(FIELD + 0.05 + dist * Math.tan(3 * D2R) + 1.2);
       const v = 70 * KT;
       F.vel = [v * Math.cos(3 * D2R), 0, v * Math.sin(3 * D2R)];
       F.q = [Math.cos(0.5 * 1.5 * D2R), 0, Math.sin(0.5 * 1.5 * D2R), 0]; // slight nose-up pitch
-      F.rpm = 1900; F.airborneTime = 5;
+      F.rpm = 1640; F.airborneTime = 5;
       chocks = false; onFoot = false; view = 'cockpit';
       toast('3 miles out. Keep 65–70 knots, aim at the runway numbers.', 'A 3 millas. Mantenga 65–70 nudos, apunte a los números de la pista.', 6000);
     }
